@@ -51,7 +51,9 @@ export type ChannelIngressIdentityField = {
    * behind it. Per-message strength is a separate, weaker-wins claim supplied on the
    * subject.
    */
-  authentication?: IdentifierAuthentication | ((value: string) => IdentifierAuthentication | undefined);
+  authentication?:
+    | IdentifierAuthentication
+    | ((value: string) => IdentifierAuthentication | undefined);
   /**
    * Marks identifiers as dangerous in diagnostics, for example mutable display names.
    *

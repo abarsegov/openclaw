@@ -56,9 +56,7 @@ function subject(params: {
         opaqueId: "address",
         kind: "email",
         value: params.address,
-        ...(params.addressAuthentication
-          ? { authentication: params.addressAuthentication }
-          : {}),
+        ...(params.addressAuthentication ? { authentication: params.addressAuthentication } : {}),
       },
       ...(params.displayName
         ? [{ opaqueId: "displayName", kind: "username" as const, value: params.displayName }]
