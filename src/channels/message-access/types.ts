@@ -379,8 +379,12 @@ export type ChannelIngressState = {
    *
    * Carries strengths rather than the subject itself so the gate can weigh a message
    * without any raw sender value reaching a diagnostic surface.
+   *
+   * Optional because this type is public and callers construct it: absent reads the same as
+   * empty, which is a channel making no per-message claim. `resolveChannelIngressState`
+   * always populates it.
    */
-  subjectAuthentication: SubjectIdentifierAuthentication;
+  subjectAuthentication?: SubjectIdentifierAuthentication;
   allowlists: {
     dm: ResolvedIngressAllowlist;
     pairingStore: ResolvedIngressAllowlist;

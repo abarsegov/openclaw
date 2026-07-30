@@ -119,14 +119,15 @@ function effectiveEntryAuthentication(params: {
 export function applyIdentifierAuthenticationPolicy(params: {
   allowlist: ResolvedIngressAllowlist;
   policy: ChannelIngressPolicyInput;
-  subjectAuthentication: SubjectIdentifierAuthentication;
+  subjectAuthentication?: SubjectIdentifierAuthentication;
 }): ResolvedIngressAllowlist {
   const minimum = minimumIdentifierAuthenticationFrom(params.policy);
+  const subjectAuthentication = params.subjectAuthentication ?? {};
   const { allowlist } = params;
   const rejected = allowlist.normalizedEntries.filter(
     (entry) =>
       !meetsIdentifierAuthentication(
-        effectiveEntryAuthentication({ entry, subjectAuthentication: params.subjectAuthentication }),
+        effectiveEntryAuthentication({ entry, subjectAuthentication }),
         minimum,
       ),
   );

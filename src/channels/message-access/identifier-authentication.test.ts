@@ -36,8 +36,8 @@ const adapter: InternalChannelIngressAdapter = {
       disabled: [],
     };
   },
-  matchSubject({ subject, entries }) {
-    const values = new Set(subject.identifiers.map((identifier) => identifier.value));
+  matchSubject({ subject: inbound, entries }) {
+    const values = new Set(inbound.identifiers.map((identifier) => identifier.value));
     const matchedEntryIds = entries
       .filter((entry) => entry.value === "*" || values.has(entry.value))
       .map((entry) => entry.opaqueEntryId);
