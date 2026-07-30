@@ -991,19 +991,16 @@ describe("renderModelSetup", () => {
     expect(text(confirm)).toContain("No");
   });
 
-  it.each([
-    {
-      id: "multiselect",
-      type: "multiselect",
-      message: "multiselect message",
-      options: [{ value: "one", label: "One" }],
-      initialValue: ["one"],
-    },
-    { id: "progress", type: "progress", message: "progress message" },
-    { id: "action", type: "action", message: "action message" },
-  ] satisfies WizardStep[])("renders the $type wizard step", (step) => {
-    const container = wizardStep(step);
-    expect(text(container)).toContain(`${step.type} message`);
+  it.each(["multiselect", "progress", "action"] as const)("renders the %s wizard step", (type) => {
+    const container = wizardStep({
+      id: type,
+      type,
+      message: `${type} message`,
+      ...(type === "multiselect"
+        ? { options: [{ value: "one", label: "One" }], initialValue: ["one"] }
+        : {}),
+    });
+    expect(text(container)).toContain(`${type} message`);
     expect(text(container)).toContain("Continue");
   });
 });
