@@ -271,40 +271,99 @@ describe("per-message subject claims", () => {
 });
 
 describe("raising the minimum", () => {
-  it("rejects an entry no message backed, however well the sender matched", async () => {
-    expect(
-      await admit(input(), { ...allowlistPolicy, minIdentifierAuthentication: "verified" }),
-    ).toMatchObject({ admission: "drop" });
-  });
+  /** Same shape as `adapter`, but the address field states what backs it. */
+  const declaredAdapter: InternalChannelIngressAdapter = {
+    ...adapter,
+    normalizeEntries({ entries }) {
+      return {
+        matchable: entries.map((entry, index) => ({
+          opaqueEntryId: `entry-${index + 1}`,
+          kind: "email" as const,
+          value: entry,
+          authentication: "verified" as const,
+        })),
+        invalid: [],
+        disabled: [],
+      };
+    },
+  };
+  const strict = { ...allowlistPolicy, minIdentifierAuthentication: "verified" as const };
 
-  it("admits it once a message proves the address", async () => {
+  it("rejects an entry the channel never described, however well the message did", async () => {
+    // Silence caps an entry at `asserted`, and `min()` cannot climb above it. Reaching
+    // `verified` is a claim a channel has to make explicitly; no per-message proof
+    // substitutes for it. This is what stops a strict posture from being satisfied by a
+    // channel that simply never said anything.
     expect(
       await admit(
         input({
           subject: subject({ address: "omar@shahine.com", addressAuthentication: "verified" }),
         }),
-        { ...allowlistPolicy, minIdentifierAuthentication: "verified" },
+        strict,
       ),
-    ).toMatchObject({ admission: "dispatch" });
+    ).toMatchObject({ admission: "drop" });
   });
 
-  it("gates control commands on the same claim", async () => {
-    // A weak message must not authorize a command either; the command gate reads the same
-    // allowlists and has to apply the same bar.
-    const decision = await admit(
-      input({
-        subject: subject({ address: "omar@shahine.com", addressAuthentication: "unverified" }),
-        allowlists: { dm: ["omar@shahine.com"], commandOwner: ["omar@shahine.com"] },
-      }),
-      {
-        ...allowlistPolicy,
-        command: { allowTextCommands: true, hasControlCommand: true },
-      },
-    );
+  it("admits when the channel declared verified and the message proved it", async () => {
+    expect(
+      await admit(
+        input({
+          adapter: declaredAdapter,
+          subject: subject({ address: "omar@shahine.com", addressAuthentication: "verified" }),
+        }),
+        strict,
+      ),
+    ).toMatchObject({ admission: "dispatch", decision: "allow" });
+  });
 
-    expect(decision).toMatchObject({ admission: "drop" });
+  it("still rejects a declared-verified entry when the message proved less", async () => {
+    expect(
+      await admit(
+        input({
+          adapter: declaredAdapter,
+          subject: subject({ address: "omar@shahine.com", addressAuthentication: "asserted" }),
+        }),
+        strict,
+      ),
+    ).toMatchObject({ admission: "drop" });
+  });
+});
+
+describe("command authorization", () => {
+  // The command gate reads its own allowlists and has to apply the same bar, so a weak
+  // identifier must not become a control-command grant even when the sender gate passed on
+  // a different, stronger identifier.
+  function commandInput() {
+    return input({
+      subject: subject({ address: "omar@shahine.com", displayName: "name:Omar" }),
+      allowlists: { dm: ["omar@shahine.com"], commandOwner: ["name:Omar"] },
+    });
+  }
+  const withCommand = (
+    overrides: Partial<ChannelIngressPolicyInput> = {},
+  ): ChannelIngressPolicyInput => ({
+    ...allowlistPolicy,
+    command: { allowTextCommands: true, hasControlCommand: true },
+    ...overrides,
+  });
+
+  it("does not let an alias authorize a control command", async () => {
+    const decision = await admit(commandInput(), withCommand());
+
+    // The sender gate passes on the address, so the command gate is reached and is the one
+    // that rejects.
     const commandGate = decision.graph.gates.find((gate) => gate.kind === "command");
     expect(commandGate?.allowed).toBe(false);
+    expect(commandGate?.reasonCode).toBe("control_command_unauthorized");
+  });
+
+  it("lets it through when the policy accepts aliases", async () => {
+    const decision = await admit(
+      commandInput(),
+      withCommand({ mutableIdentifierMatching: "enabled" }),
+    );
+
+    expect(decision.graph.gates.find((gate) => gate.kind === "command")?.allowed).toBe(true);
   });
 });
 
